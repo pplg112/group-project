@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ข้อมูลนักเรียนเชิงสถิติ</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #f2f2f2;
+      padding: 20px;
+      text-align: center;
+    }
+    .chart-container {
+      max-width: 800px;
+      margin: 30px auto;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .legend {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 5px 15px;
+    }
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+      border-radius: 3px;
+    }
+    table {
+      margin: 0 auto;
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #aaa;
+    }
+    th {
+      background-color: #ddd;
+    }
+  </style>
+</head>
+<body>
+  <h1>ข้อมูลเชิงสถิตินักเรียน</h1>
+
+  <div class="chart-container">
+    <h2>ตารางข้อมูลนักเรียน</h2>
+    <table id="dataTable">
+      <tr>
+        <th>ประเภท</th>
+        <th>จำนวน</th>
+      </tr>
+      <!-- แถวข้อมูลจะถูกเพิ่มด้วย JS -->
+    </table>
+  </div>
+
+  <div class="chart-container">
+    <h2>กราฟแท่ง: จำนวนนักเรียนแต่ละแผนก</h2>
+    <canvas id="barChart"></canvas>
+    <div class="legend" id="deptLegend">
+      <!-- Legend แผนก จะเติมด้วย JS -->
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <h2>กราฟวงกลม: สัดส่วนเพศนักเรียน</h2>
+    <canvas id="pieChart"></canvas>
+    <div class="legend" id="genderLegend">
+      <!-- Legend เพศ จะเติมด้วย JS -->
+    </div>
+  </div>
+
+  <script>
+    // เปลี่ยน URL ให้ตรงกับที่เก็บ server.php ฝั่ง backend นะครับ
+    const url = 'http://localhost:3000/api/stats';
+
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        // สร้างตารางข้อมูล
+        const table = document.getElementById('dataTable');
+        // เคลียร์แถวข้อมูลเก่า (ถ้ามี)
+        table.querySelectorAll('tr.data-row').forEach(row => row.remove());
+
+        // ฟังก์ชันเพิ่มแถว
+        function addRow(type, count) {
+          const tr = document.createElement('tr');
+          tr.classList.add('data-row');
+          tr.innerHTML = `<td>${type}</td><td>${count} คน</td>`;
+          table.appendChild(tr);
+        }
+
+        addRow('นักเรียนทั้งหมด', data.total);
+        addRow('ชาย', data.male);
+        addRow('หญิง', data.female);
+        // เพิ่มข้อมูลชั้นปี
+        for (const [level, count] of Object.entries(data.levels)) {
+          addRow(level, count);
+        }
+
+        // เตรียมข้อมูลสำหรับกราฟแท่ง (แผนก)
+        const deptLabels = Object.keys(data.departments);
+        const deptData = Object.values(data.departments);
+        const deptColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'];
+
+        // วาดกราฟแท่ง
+        const barCtx = document.getElementById('barChart').getContext('2d');
+        new Chart(barCtx, {
+          type: 'bar',
+          data: {
+            labels: deptLabels,
+            datasets: [{
+              label: 'จำนวนนักเรียน',
+              data: deptData,
+              backgroundColor: deptColors,
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'จำนวนนักเรียน (คน)'
+                }
+              }
+            }
+          }
+        });
+
+        // สร้าง Legend แผนก
+        const deptLegend = document.getElementById('deptLegend');
+        deptLegend.innerHTML = '';
+        deptLabels.forEach((label, i) => {
+          const item = document.createElement('div');
+          item.className = 'legend-item';
+          item.innerHTML = `<div class="legend-color" style="background-color:${deptColors[i]}"></div>${label}`;
+          deptLegend.appendChild(item);
+        });
+
+        // เตรียมข้อมูลสำหรับกราฟวงกลม (เพศ)
+        const genderLabels = ['ชาย', 'หญิง'];
+        const genderData = [data.male, data.female];
+        const genderColors = ['#36A2EB', '#FF6384'];
+
+        // วาดกราฟวงกลม
+        const pieCtx = document.getElementById('pieChart').getContext('2d');
+        new Chart(pieCtx, {
+          type: 'pie',
+          data: {
+            labels: genderLabels,
+            datasets: [{
+              data: genderData,
+              backgroundColor: genderColors
+            }]
+          },
+          options: {
+            responsive: true
+          }
+        });
+
+        // สร้าง Legend เพศ
+        const genderLegend = document.getElementById('genderLegend');
+        genderLegend.innerHTML = '';
+        genderLabels.forEach((label, i) => {
+          const item = document.createElement('div');
+          item.className = 'legend-item';
+          item.innerHTML = `<div class="legend-color" style="background-color:${genderColors[i]}"></div>${label}`;
+          genderLegend.appendChild(item);
+        });
+
+      })
+      .catch(error => {
+        console.error('เกิดข้อผิดพลาดในการดึงข้อมูล:', error);
+      });
+  </script>
+</body>
+</html>
